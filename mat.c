@@ -125,8 +125,12 @@ void read_expr() {
 }
 
 int main(int argc, char** argv) {
-  read_expr();
-  print_mat();
-  printf("\n");
+  while (1) {
+    printf("> ");
+    fflush(stdin);
+    read_expr();
+    print_mat();
+    printf("\n");
+  }
   return 0;
 }
