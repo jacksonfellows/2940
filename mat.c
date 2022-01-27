@@ -19,10 +19,10 @@ Cons* cons(int car, Cons* cdr) {
 }
 
 void free_cons(Cons* x) {
-  if (x->cdr != NULL) {
+  if (x != NULL) {
     free_cons(x->cdr);
+    free(x);
   }
-  free(x);
 }
 
 typedef struct {
@@ -74,10 +74,18 @@ int parse_int(int* dest) {
   return 1;
 }
 
-Mat* alloc_mat(int size) {
+int cons_product(Cons* cons) {
+  if (cons == NULL) {
+    return 1;
+  }
+  return cons->car * cons_product(cons->cdr);
+}
+
+Mat* alloc_mat(Cons* shape) {
   Mat* mat = malloc(sizeof(Mat));
   mat->refs = 0;
-  mat->shape = cons(size, NULL);
+  mat->shape = shape;
+  int size = cons_product(shape);
   mat->data = malloc(sizeof(int) * size);
   return mat;
 }
@@ -90,6 +98,13 @@ void free_maybe(Mat* mat) {
   }
 }
 
+Cons* cons_copy(Cons* x) {
+  if (x == NULL) {
+    return NULL;
+  }
+  return cons(x->car, cons_copy(x->cdr));
+}
+
 int cons_len(Cons* cons) {
   if (cons == NULL) {
     return 0;
@@ -97,51 +112,80 @@ int cons_len(Cons* cons) {
   return 1 + cons_len(cons->cdr);
 }
 
-Mat* cons_to_mat(Cons* cons) {
-  int len = cons_len(cons);
-  Mat* mat = alloc_mat(len);
-  for (int i = 0; cons != NULL; i++, cons = cons->cdr) {
-    mat->data[i] = cons->car;
+int cons_eq(Cons* a, Cons* b) {
+  if (a == NULL && b == NULL)
+    return 1;
+  if (a == NULL || b == NULL)
+    return 0;
+  return a->car == b->car && cons_eq(a->cdr, b->cdr);
+}
+
+Mat* cons_to_mat(Cons* x) {
+  int len = cons_len(x);
+  Mat* mat = alloc_mat(cons(len, NULL));
+  for (int i = 0; x != NULL; i++, x = x->cdr) {
+    mat->data[i] = x->car;
   }
   return mat;
 }
 
 void read_mat() {
   skip_whitespace();
-  assert(getc(stdin) == '[');
-  inside = 1;
-  int i;
-  for (i = 0; ; i++) {
-    skip_whitespace();
-    if (!parse_int(&temp_mat[i]))
-      break;
+  int c = getc(stdin);
+  if (c == '[') {
+    inside = 1;
+    int i;
+    for (i = 0; ; i++) {
+      skip_whitespace();
+      if (!parse_int(&temp_mat[i]))
+        break;
+    }
+    assert(getc(stdin) == ']');
+    inside = 0;
+    Mat* mat = alloc_mat(cons(i, NULL));
+    memcpy(mat->data, &temp_mat, sizeof(int) * i);
+    push(mat);
+  } else {
+    ungetc(c, stdin);
+    int x;
+    assert(parse_int(&x));
+    Mat* mat = alloc_mat(NULL);
+    mat->data[0] = x;
+    push(mat);
   }
-  assert(getc(stdin) == ']');
-  inside = 0;
-  Mat* mat = alloc_mat(i);
-  memcpy(mat->data, &temp_mat, sizeof(int) * i);
-  push(mat);
 }
 
 void print_mat() {
   Mat* mat = pop();
-  printf("[");
-  for (int i = 0; i < first(mat->shape); i++) {
-    if (i != 0) {
-      printf(" ");
+  int rank = cons_len(mat->shape);
+  switch (rank) {
+  case 0:
+    printf("%d", mat->data[0]);
+    break;
+  case 1:
+    printf("[");
+    for (int i = 0; i < first(mat->shape); i++) {
+      if (i != 0) {
+        printf(" ");
+      }
+      printf("%d", mat->data[i]);
     }
-    printf("%d", mat->data[i]);
+    printf("]");
+    break;
+  default:
+    assert(0);
+    break;
   }
-  printf("]");
   free_maybe(mat);
 }
 
 void add_mats() {
   Mat* a = pop();
   Mat* b = pop();
-  assert(first(a->shape) == first(b->shape));
-  Mat* res = alloc_mat(first(a->shape));
-  for (int i = 0; i < first(res->shape); i++) {
+  assert(cons_eq(a->shape, b->shape));
+  Mat* res = alloc_mat(cons_copy(a->shape));
+  int size = cons_product(res->shape);
+  for (int i = 0; i < size; i++) {
     res->data[i] = a->data[i] + b->data[i];
   }
   free_maybe(a);
@@ -156,6 +200,14 @@ void get_shape() {
   free_maybe(mat);
 }
 
+void get_rank() {
+  Mat* mat = pop();
+  Mat* rank = alloc_mat(NULL);
+  rank->data[0] = cons_len(mat->shape);
+  push(rank);
+  free_maybe(mat);
+}
+
 void read_term() {
   skip_whitespace();
   int c = getc(stdin);
@@ -166,6 +218,12 @@ void read_term() {
     assert(getc(stdin) == 'e');
     read_term();
     get_shape();
+  } else if (c == 'r') {
+    assert(getc(stdin) == 'a');
+    assert(getc(stdin) == 'n');
+    assert(getc(stdin) == 'k');
+    read_term();
+    get_rank();
   } else {
     ungetc(c, stdin);
     read_mat();
@@ -174,12 +232,12 @@ void read_term() {
 
 void read_expr() {
   read_term();
+  inside = 0;
   skip_whitespace();
   int c = getc(stdin);
   if (c == '+') {
     inside = 1;
     read_expr();
-    inside = 0;
     add_mats();
   } else {
     ungetc(c, stdin);
