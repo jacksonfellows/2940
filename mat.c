@@ -10,6 +10,7 @@ typedef struct _Cons {
 } Cons;
 
 #define first(x) (x->car)
+#define rest(x) (x->cdr)
 
 Cons* cons(int car, Cons* cdr) {
   Cons* x = malloc(sizeof(Cons));
@@ -129,6 +130,16 @@ Mat* cons_to_mat(Cons* x) {
   return mat;
 }
 
+Cons* mat_to_cons(Mat* mat) {
+  assert(cons_len(mat->shape) == 1);
+  int len = first(mat->shape);
+  Cons* x = NULL;
+  for (int i = len-1; i >= 0; i--) {
+    x = cons(mat->data[i], x);
+  }
+  return x;
+}
+
 void read_mat() {
   skip_whitespace();
   int c = getc(stdin);
@@ -155,27 +166,47 @@ void read_mat() {
   }
 }
 
-void print_mat() {
-  Mat* mat = pop();
-  int rank = cons_len(mat->shape);
+void _print_mat(int* data, Cons* shape, int outer) {
+  int rank = cons_len(shape);
+  int stride;
   switch (rank) {
   case 0:
-    printf("%d", mat->data[0]);
+    assert(0);
     break;
   case 1:
-    printf("[");
-    for (int i = 0; i < first(mat->shape); i++) {
+    for (int i = 0; i < first(shape); i++) {
       if (i != 0) {
         printf(" ");
       }
-      printf("%d", mat->data[i]);
+      printf("%d", data[i]);
     }
-    printf("]");
     break;
   default:
-    assert(0);
+    stride = cons_product(rest(shape));
+    for (int i = 0; i < first(shape); i++) {
+      if (i != 0) {
+        printf(" ");
+      }
+      _print_mat(&data[i*stride], rest(shape), i == first(shape) - 1);
+      printf(";");
+      if (!(outer && i == first(shape) - 1)) {
+        printf("\n");
+      }
+    }
     break;
   }
+}
+
+void print_mat() {
+  Mat* mat = pop();
+   int rank = cons_len(mat->shape);
+   if (rank == 0) {
+     printf("%d", mat->data[0]);
+   } else {
+     printf("[");
+     _print_mat(mat->data, mat->shape, 1);
+     printf("]");
+   }
   free_maybe(mat);
 }
 
@@ -208,6 +239,15 @@ void get_rank() {
   free_maybe(mat);
 }
 
+void reshape() {
+  Mat* mat = pop();
+  Mat* new_shape = pop();
+  free_cons(mat->shape);
+  mat->shape = mat_to_cons(new_shape);
+  push(mat);
+  free_maybe(new_shape);
+}
+
 void read_term() {
   skip_whitespace();
   int c = getc(stdin);
@@ -219,11 +259,23 @@ void read_term() {
     read_term();
     get_shape();
   } else if (c == 'r') {
-    assert(getc(stdin) == 'a');
-    assert(getc(stdin) == 'n');
-    assert(getc(stdin) == 'k');
-    read_term();
-    get_rank();
+    c = getc(stdin);
+    if (c == 'a') {
+      assert(getc(stdin) == 'n');
+      assert(getc(stdin) == 'k');
+      read_term();
+      get_rank();
+    } else {
+      assert(c == 'e');
+      assert(getc(stdin) == 's');
+      assert(getc(stdin) == 'h');
+      assert(getc(stdin) == 'a');
+      assert(getc(stdin) == 'p');
+      assert(getc(stdin) == 'e');
+      read_term();
+      read_term();
+      reshape();
+    }
   } else {
     ungetc(c, stdin);
     read_mat();
