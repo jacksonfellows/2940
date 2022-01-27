@@ -4,9 +4,30 @@
 #include <ctype.h>
 #include <string.h>
 
+typedef struct _Cons {
+  int car;
+  struct _Cons* cdr;
+} Cons;
+
+#define first(x) (x->car)
+
+Cons* cons(int car, Cons* cdr) {
+  Cons* x = malloc(sizeof(Cons));
+  x->car = car;
+  x->cdr = cdr;
+  return x;
+}
+
+void free_cons(Cons* x) {
+  if (x->cdr != NULL) {
+    free_cons(x->cdr);
+  }
+  free(x);
+}
+
 typedef struct {
   int refs;
-  int len;
+  Cons* shape;
   int* data;
 } Mat;
 
@@ -53,18 +74,36 @@ int parse_int(int* dest) {
   return 1;
 }
 
-Mat* alloc_mat(int len) {
+Mat* alloc_mat(int size) {
   Mat* mat = malloc(sizeof(Mat));
   mat->refs = 0;
-  mat->len = len;
-  mat->data = malloc(sizeof(int) * len);
+  mat->shape = cons(size, NULL);
+  mat->data = malloc(sizeof(int) * size);
   return mat;
 }
 
 void free_maybe(Mat* mat) {
   if (mat->refs == 0) {
+    free_cons(mat->shape);
+    free(mat->data);
     free(mat);
   }
+}
+
+int cons_len(Cons* cons) {
+  if (cons == NULL) {
+    return 0;
+  }
+  return 1 + cons_len(cons->cdr);
+}
+
+Mat* cons_to_mat(Cons* cons) {
+  int len = cons_len(cons);
+  Mat* mat = alloc_mat(len);
+  for (int i = 0; cons != NULL; i++, cons = cons->cdr) {
+    mat->data[i] = cons->car;
+  }
+  return mat;
 }
 
 void read_mat() {
@@ -87,7 +126,7 @@ void read_mat() {
 void print_mat() {
   Mat* mat = pop();
   printf("[");
-  for (int i = 0; i < mat->len; i++) {
+  for (int i = 0; i < first(mat->shape); i++) {
     if (i != 0) {
       printf(" ");
     }
@@ -100,9 +139,9 @@ void print_mat() {
 void add_mats() {
   Mat* a = pop();
   Mat* b = pop();
-  assert(a->len == b->len);
-  Mat* res = alloc_mat(a->len);
-  for (int i = 0; i < res->len; i++) {
+  assert(first(a->shape) == first(b->shape));
+  Mat* res = alloc_mat(first(a->shape));
+  for (int i = 0; i < first(res->shape); i++) {
     res->data[i] = a->data[i] + b->data[i];
   }
   free_maybe(a);
@@ -110,8 +149,31 @@ void add_mats() {
   push(res);
 }
 
+void get_shape() {
+  Mat* mat = pop();
+  Mat* shape = cons_to_mat(mat->shape);
+  push(shape);
+  free_maybe(mat);
+}
+
+void read_term() {
+  skip_whitespace();
+  int c = getc(stdin);
+  if (c == 's') {
+    assert(getc(stdin) == 'h');
+    assert(getc(stdin) == 'a');
+    assert(getc(stdin) == 'p');
+    assert(getc(stdin) == 'e');
+    read_term();
+    get_shape();
+  } else {
+    ungetc(c, stdin);
+    read_mat();
+  }
+}
+
 void read_expr() {
-  read_mat();
+  read_term();
   skip_whitespace();
   int c = getc(stdin);
   if (c == '+') {
