@@ -47,13 +47,13 @@ Mat* pop() {
 
 int temp_mat[256];
 
-int inside = 0;
+int SKIP_NEWLINES = 0;
 
 void skip_whitespace() {
   int c;
   while (1) {
     c = getc(stdin);
-    if (!(c == ' ' || (inside && c == '\n'))) {
+    if (!(c == ' ' || (SKIP_NEWLINES && c == '\n'))) {
       ungetc(c, stdin);
       break;
     }
@@ -140,21 +140,41 @@ Cons* mat_to_cons(Mat* mat) {
   return x;
 }
 
+Cons* _read_mat(int offset) {
+  Cons* row_shape = NULL;
+  int row_size = 1;
+  for (int len = 0; ; len++) {
+    skip_whitespace();
+    if (!parse_int(&temp_mat[len*row_size + offset])) {
+      int c = getc(stdin);
+      if (c == '[') {
+        Cons* shape = _read_mat(len*row_size + offset);
+        if (len == 0) {
+          row_shape = shape;
+          row_size = cons_product(row_shape);
+        } else {
+          assert(cons_eq(row_shape, shape));
+          free_cons(shape);
+        }
+        assert(getc(stdin) == ']');
+      } else {
+        ungetc(c, stdin);
+        return cons(len, row_shape);
+      }
+    }
+  }
+}
+
 void read_mat() {
   skip_whitespace();
   int c = getc(stdin);
   if (c == '[') {
-    inside = 1;
-    int i;
-    for (i = 0; ; i++) {
-      skip_whitespace();
-      if (!parse_int(&temp_mat[i]))
-        break;
-    }
+    SKIP_NEWLINES = 1;
+    Cons* shape = _read_mat(0);
     assert(getc(stdin) == ']');
-    inside = 0;
-    Mat* mat = alloc_mat(cons(i, NULL));
-    memcpy(mat->data, &temp_mat, sizeof(int) * i);
+    SKIP_NEWLINES = 0;
+    Mat* mat = alloc_mat(shape);
+    memcpy(mat->data, &temp_mat, sizeof(int) * cons_product(shape));
     push(mat);
   } else {
     ungetc(c, stdin);
@@ -166,7 +186,8 @@ void read_mat() {
   }
 }
 
-void _print_mat(int* data, Cons* shape, int outer) {
+void _print_mat(int* data, Cons* shape, int outer, int padding) {
+  printf("[");
   int rank = cons_len(shape);
   int stride;
   switch (rank) {
@@ -180,15 +201,20 @@ void _print_mat(int* data, Cons* shape, int outer) {
       }
       printf("%d", data[i]);
     }
+    printf("]");
     break;
   default:
     stride = cons_product(rest(shape));
     for (int i = 0; i < first(shape); i++) {
       if (i != 0) {
-        printf(" ");
+        for (int j = 0; j < padding - rank + 1; j++) {
+          printf(" ");
+        }
       }
-      _print_mat(&data[i*stride], rest(shape), i == first(shape) - 1);
-      printf(";");
+      _print_mat(&data[i*stride], rest(shape), outer && i == first(shape) - 1, padding);
+      if (i == first(shape) - 1) {
+        printf("]");
+      }
       if (!(outer && i == first(shape) - 1)) {
         printf("\n");
       }
@@ -203,9 +229,7 @@ void print_mat() {
    if (rank == 0) {
      printf("%d", mat->data[0]);
    } else {
-     printf("[");
-     _print_mat(mat->data, mat->shape, 1);
-     printf("]");
+     _print_mat(mat->data, mat->shape, 1, rank);
    }
   free_maybe(mat);
 }
@@ -284,11 +308,9 @@ void read_term() {
 
 void read_expr() {
   read_term();
-  inside = 0;
   skip_whitespace();
   int c = getc(stdin);
   if (c == '+') {
-    inside = 1;
     read_expr();
     add_mats();
   } else {
