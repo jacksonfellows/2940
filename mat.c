@@ -445,7 +445,9 @@ int main(int argc, char** argv) {
   while (1) {
     printf("> ");
     fflush(stdin);
+    SKIP_NEWLINES = 1;
     skip_whitespace();
+    SKIP_NEWLINES = 0;
     int c = getc(stdin);
     if (c == ':') {
       if (getc(stdin) == 'q') {
