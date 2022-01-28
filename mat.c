@@ -302,6 +302,20 @@ void add_mats() {
   push(res);
 }
 
+void sub_mats() {
+  Mat* b = pop();
+  Mat* a = pop();
+  assert(cons_eq(a->shape, b->shape));
+  Mat* res = alloc_mat(cons_copy(a->shape));
+  int size = cons_product(res->shape);
+  for (int i = 0; i < size; i++) {
+    res->data[i] = a->data[i] - b->data[i];
+  }
+  free_maybe(a);
+  free_maybe(b);
+  push(res);
+}
+
 void get_shape() {
   Mat* mat = pop();
   Mat* shape = cons_to_mat(mat->shape);
@@ -385,6 +399,9 @@ void read_expr() {
   if (c == '+') {
     read_expr();
     add_mats();
+  } else if (c == '-') {
+    read_expr();
+    sub_mats();
   } else {
     ungetc(c, stdin);
   }
