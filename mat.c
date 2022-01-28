@@ -420,9 +420,13 @@ void read_expr() {
 
 void save_to_history() {
   Mat* mat = stack[stack_top - 1];
-  history[history_i] = mat;
+  history_i++;
+  if (history_i >= HISTORY_SIZE) {
+    history_i = history_i % HISTORY_SIZE;
+    free_maybe(history[history_i]);
+  }
+  history[history_i-1] = mat;
   mat->refs++;
-  history_i = (history_i + 1) % HISTORY_SIZE;
 }
 
 int main(int argc, char** argv) {
