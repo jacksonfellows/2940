@@ -13,8 +13,11 @@ typedef struct _Cons {
 #define first(x) (x->car)
 #define rest(x) (x->cdr)
 
+int n_cons = 0;
+
 Cons* cons(int car, Cons* cdr) {
   Cons* x = malloc(sizeof(Cons));
+  n_cons++;
   x->car = car;
   x->cdr = cdr;
   return x;
@@ -24,6 +27,7 @@ void free_cons(Cons* x) {
   if (x != NULL) {
     free_cons(x->cdr);
     free(x);
+    n_cons--;
   }
 }
 
@@ -99,8 +103,11 @@ int cons_product(Cons* cons) {
   return cons->car * cons_product(cons->cdr);
 }
 
+int n_mat = 0;
+
 Mat* alloc_mat(Cons* shape) {
   Mat* mat = malloc(sizeof(Mat));
+  n_mat++;
   mat->refs = 0;
   mat->shape = shape;
   int size = cons_product(shape);
@@ -113,6 +120,7 @@ void free_maybe(Mat* mat) {
     free_cons(mat->shape);
     free(mat->data);
     free(mat);
+    n_mat--;
   }
 }
 
@@ -467,6 +475,8 @@ void cleanup() {
     stack[i]->refs--;
     free_maybe(stack[i]);
   }
+  assert(n_mat == 0);
+  assert(n_cons == 0);
 }
 
 int main(int argc, char** argv) {
