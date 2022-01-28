@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef struct _Cons {
   int car;
@@ -442,6 +443,7 @@ int main(int argc, char** argv) {
   for (int i = 0; i < HISTORY_SIZE; i++) {
     history[i] = NULL;
   }
+  int is_term = isatty(fileno(stdin));
   while (1) {
     printf("> ");
     fflush(stdin);
@@ -460,6 +462,9 @@ int main(int argc, char** argv) {
     }
     read_expr();
     save_to_history();
+    if (!is_term) {
+      printf("\n");
+    }
     print_mat();
     printf("\n");
   }
