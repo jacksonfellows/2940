@@ -307,11 +307,29 @@ void get_rank() {
 
 void reshape() {
   Mat* mat = pop();
-  Mat* new_shape = pop();
+  Mat* new_shape_mat = pop();
+  Cons* new_shape = mat_to_cons(new_shape_mat);
+  assert(cons_product(mat->shape) == cons_product(new_shape));
   free_cons(mat->shape);
-  mat->shape = mat_to_cons(new_shape);
+  mat->shape = new_shape;
   push(mat);
-  free_maybe(new_shape);
+  free_maybe(new_shape_mat);
+}
+
+void read_expr();
+
+void read_atom() {
+  skip_whitespace();
+  int c = getc(stdin);
+  if (c == '(') {
+    skip_whitespace();
+    read_expr();
+    skip_whitespace();
+    assert(getc(stdin) == ')');
+  } else {
+    ungetc(c, stdin);
+    read_mat();
+  }
 }
 
 void read_term() {
@@ -344,7 +362,7 @@ void read_term() {
     }
   } else {
     ungetc(c, stdin);
-    read_mat();
+    read_atom();
   }
 }
 
