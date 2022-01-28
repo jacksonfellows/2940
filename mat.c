@@ -463,6 +463,10 @@ void cleanup() {
       free_maybe(history[i]);
     }
   }
+  for (int i = 0; i < stack_top; i++) {
+    stack[i]->refs--;
+    free_maybe(stack[i]);
+  }
 }
 
 int main(int argc, char** argv) {
