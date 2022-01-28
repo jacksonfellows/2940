@@ -284,12 +284,12 @@ void _print_mat(int* data, Cons* shape, int padding, int outer) {
 
 void print_mat() {
   Mat* mat = pop();
-   int rank = cons_len(mat->shape);
-   if (rank == 0) {
-     printf("%d", mat->data[0]);
-   } else {
-     _print_mat(mat->data, mat->shape, rank, 1);
-   }
+  int rank = cons_len(mat->shape);
+  if (rank == 0) {
+    printf("%d", mat->data[0]);
+  } else {
+    _print_mat(mat->data, mat->shape, rank, 1);
+  }
   free_maybe(mat);
 }
 
