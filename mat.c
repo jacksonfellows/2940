@@ -186,7 +186,19 @@ void read_mat() {
   }
 }
 
-void _print_mat(int* data, Cons* shape, int outer, int padding) {
+void _print_row(int* data, int len) {
+  for (int i = 0; i < len; i++) {
+    if (i != 0) {
+      printf(" ");
+    }
+    printf("%d", data[i]);
+  }
+  printf("]");
+}
+
+void _print_mat(int* data, Cons* shape, int padding, int outer);
+
+void _print_mat_last(int* data, Cons* shape, int padding, int outer) {
   printf("[");
   int rank = cons_len(shape);
   int stride;
@@ -195,13 +207,7 @@ void _print_mat(int* data, Cons* shape, int outer, int padding) {
     assert(0);
     break;
   case 1:
-    for (int i = 0; i < first(shape); i++) {
-      if (i != 0) {
-        printf(" ");
-      }
-      printf("%d", data[i]);
-    }
-    printf("]");
+    _print_row(data, first(shape));
     break;
   default:
     stride = cons_product(rest(shape));
@@ -211,11 +217,47 @@ void _print_mat(int* data, Cons* shape, int outer, int padding) {
           printf(" ");
         }
       }
-      _print_mat(&data[i*stride], rest(shape), outer && i == first(shape) - 1, padding);
       if (i == first(shape) - 1) {
+        _print_mat_last(&data[i*stride], rest(shape), padding, outer);
         printf("]");
+      } else {
+        _print_mat(&data[i*stride], rest(shape), padding, 0);
+        printf("\n");
       }
-      if (!(outer && i == first(shape) - 1)) {
+    }
+    break;
+  }
+}
+
+void _print_mat(int* data, Cons* shape, int padding, int outer) {
+  printf("[");
+  int rank = cons_len(shape);
+  int stride;
+  switch (rank) {
+  case 0:
+    assert(0);
+    break;
+  case 1:
+    _print_row(data, first(shape));
+    break;
+  default:
+    stride = cons_product(rest(shape));
+    for (int i = 0; i < first(shape); i++) {
+      if (i != 0) {
+        for (int j = 0; j < padding - rank + 1; j++) {
+          printf(" ");
+        }
+      }
+      if (i == first(shape) - 1) {
+        _print_mat_last(&data[i*stride], rest(shape), padding, outer);
+        printf("]");
+        if (!outer) {
+          for (int j = 0; j < rank-1; j++) {
+            printf("\n");
+          }
+        }
+      } else {
+        _print_mat(&data[i*stride], rest(shape), padding, 0);
         printf("\n");
       }
     }
@@ -229,7 +271,7 @@ void print_mat() {
    if (rank == 0) {
      printf("%d", mat->data[0]);
    } else {
-     _print_mat(mat->data, mat->shape, 1, rank);
+     _print_mat(mat->data, mat->shape, rank, 1);
    }
   free_maybe(mat);
 }
