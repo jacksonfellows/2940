@@ -35,6 +35,10 @@ typedef struct {
 Mat* stack[256];
 int stack_top = 0;
 
+#define HISTORY_SIZE 16
+Mat* history[HISTORY_SIZE];
+int history_i = 0;
+
 void push(Mat* mat) {
   stack[stack_top++] = mat;
   mat->refs++;
@@ -352,6 +356,13 @@ void read_atom() {
     read_expr();
     skip_whitespace();
     assert(getc(stdin) == ')');
+  } else if (c == '%') {
+    int n = 1;
+    while ((c = getc(stdin)) == '%') {
+      n++;
+    }
+    ungetc(c, stdin);
+    push(history[(history_i - n + HISTORY_SIZE) % HISTORY_SIZE]);
   } else {
     ungetc(c, stdin);
     read_mat();
@@ -407,11 +418,19 @@ void read_expr() {
   }
 }
 
+void save_to_history() {
+  Mat* mat = stack[stack_top - 1];
+  history[history_i] = mat;
+  mat->refs++;
+  history_i = (history_i + 1) % HISTORY_SIZE;
+}
+
 int main(int argc, char** argv) {
   while (1) {
     printf("> ");
     fflush(stdin);
     read_expr();
+    save_to_history();
     print_mat();
     printf("\n");
   }
