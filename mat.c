@@ -347,6 +347,24 @@ void reshape() {
   free_maybe(new_shape_mat);
 }
 
+void make_range() {
+  Mat* upper = pop();
+  Mat* lower = pop();
+  int upper_rank = cons_len(upper->shape);
+  int lower_rank = cons_len(lower->shape);
+  assert(upper_rank == 0 && lower_rank == 0);
+  int upper_n = upper->data[0];
+  int lower_n = lower->data[0];
+  int size = upper_n - lower_n + 1;
+  Mat* new = alloc_mat(cons(size, NULL));
+  for (int i = 0; i < size; i++) {
+    new->data[i] = lower_n++;
+  }
+  push(new);
+  free_maybe(upper);
+  free_maybe(lower);
+}
+
 void read_expr();
 
 void read_atom() {
@@ -384,9 +402,17 @@ void read_term() {
     c = getc(stdin);
     if (c == 'a') {
       assert(getc(stdin) == 'n');
-      assert(getc(stdin) == 'k');
-      read_term();
-      get_rank();
+      c = getc(stdin);
+      if (c == 'g') {
+        assert(getc(stdin) == 'e');
+        read_term();
+        read_term();
+        make_range();
+      } else {
+        assert(c == 'k');
+        read_term();
+        get_rank();
+      }
     } else {
       assert(c == 'e');
       assert(getc(stdin) == 's');
