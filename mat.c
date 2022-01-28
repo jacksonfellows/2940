@@ -349,10 +349,12 @@ void reshape() {
   Mat* new_shape_mat = pop();
   Cons* new_shape = mat_to_cons(new_shape_mat);
   assert(cons_product(mat->shape) == cons_product(new_shape));
-  free_cons(mat->shape);
-  mat->shape = new_shape;
-  push(mat);
+  Mat* new_mat = alloc_mat(new_shape);
+  int size = cons_product(new_shape);
+  memcpy(new_mat->data, mat->data, sizeof(int) * size);
+  push(new_mat);
   free_maybe(new_shape_mat);
+  free_maybe(mat);
 }
 
 void make_range() {
