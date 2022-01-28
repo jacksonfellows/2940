@@ -452,6 +452,7 @@ int main(int argc, char** argv) {
         cleanup();
         return 0;
       }
+      assert(0);
     } else {
       ungetc(c, stdin);
     }
