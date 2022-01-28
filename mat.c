@@ -420,23 +420,44 @@ void read_expr() {
 
 void save_to_history() {
   Mat* mat = stack[stack_top - 1];
-  history_i++;
-  if (history_i >= HISTORY_SIZE) {
-    history_i = history_i % HISTORY_SIZE;
+  if (history[history_i] != NULL) {
+    history[history_i]->refs--;
     free_maybe(history[history_i]);
   }
-  history[history_i-1] = mat;
+  history[history_i] = mat;
   mat->refs++;
+  history_i = (history_i + 1) % HISTORY_SIZE;
+}
+
+void cleanup() {
+  for (int i = 0; i < HISTORY_SIZE; i++) {
+    if (history[i] != NULL) {
+      history[i]->refs--;
+      free_maybe(history[i]);
+    }
+  }
 }
 
 int main(int argc, char** argv) {
+  for (int i = 0; i < HISTORY_SIZE; i++) {
+    history[i] = NULL;
+  }
   while (1) {
     printf("> ");
     fflush(stdin);
+    skip_whitespace();
+    int c = getc(stdin);
+    if (c == ':') {
+      if (getc(stdin) == 'q') {
+        cleanup();
+        return 0;
+      }
+    } else {
+      ungetc(c, stdin);
+    }
     read_expr();
     save_to_history();
     print_mat();
     printf("\n");
   }
-  return 0;
 }
