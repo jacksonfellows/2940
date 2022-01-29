@@ -73,30 +73,7 @@ void skip_whitespace() {
 }
 
 double parse_double(double* dest) {
-  int c = getc(stdin);
-  double sign = 1;
-  if (c == '-') {
-    sign = -1;
-    c = getc(stdin);
-    if (!isdigit(c)) {
-      ungetc(c, stdin);
-      ungetc('-', stdin);
-      return 0;
-    }
-  } else {
-    if (!isdigit(c)) {
-      ungetc(c, stdin);
-      return 0;
-    }
-  }
-  double x = 0;
-  do {
-    x = 10*x + (int)(c - '0');
-  } while (isdigit(c = getc(stdin)));
-  x *= sign;
-  *dest = x;
-  ungetc(c, stdin);
-  return 1;
+  return 1 == scanf("%lf", dest);
 }
 
 int cons_product(Cons* cons) {
