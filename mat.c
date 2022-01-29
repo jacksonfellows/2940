@@ -357,6 +357,10 @@ void make_range() {
   free_maybe(lower);
 }
 
+double round_zeros(double x) {
+  return (fabs(x) < 0.001) ? 0 : x;
+}
+
 void _rref(double* data, int rows, int cols) {
   int first_row = 0;
   while (first_row < rows - 1) {
@@ -396,7 +400,7 @@ void _rref(double* data, int rows, int cols) {
       if (x != 0) {
         double factor = -x / pivot;
         for (int col = pivot_col; col < cols; col++) {
-          data[row*cols + col] += factor * data[first_row*cols + col];
+          data[row*cols + col] = round_zeros(data[row*cols + col] + factor * data[first_row*cols + col]);
         }
       }
     }
@@ -421,7 +425,7 @@ void _rref(double* data, int rows, int cols) {
       if (x != 0) {
         double factor = -x / lead;
         for (int col = leading_col; col < cols; col++) {
-          data[row*cols + col] += factor * data[bottom_row*cols + col];
+          data[row*cols + col] = round_zeros(data[row*cols + col] + factor * data[bottom_row*cols + col]);
         }
       }
     }
