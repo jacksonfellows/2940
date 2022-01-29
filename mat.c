@@ -4,6 +4,8 @@
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
+#include <math.h>
 
 typedef struct _Cons {
   int car;
@@ -11,6 +13,7 @@ typedef struct _Cons {
 } Cons;
 
 #define first(x) (x->car)
+#define second(x) (x->cdr->car)
 #define rest(x) (x->cdr)
 
 int n_cons = 0;
@@ -34,7 +37,7 @@ void free_cons(Cons* x) {
 typedef struct {
   int refs;
   Cons* shape;
-  int* data;
+  double* data;
 } Mat;
 
 Mat* stack[256];
@@ -54,7 +57,7 @@ Mat* pop() {
   return stack[--stack_top];
 }
 
-int temp_mat[256];
+double temp_mat[256];
 
 int SKIP_NEWLINES = 0;
 
@@ -69,9 +72,9 @@ void skip_whitespace() {
   }
 }
 
-int parse_int(int* dest) {
+double parse_double(double* dest) {
   int c = getc(stdin);
-  int sign = 1;
+  double sign = 1;
   if (c == '-') {
     sign = -1;
     c = getc(stdin);
@@ -86,7 +89,7 @@ int parse_int(int* dest) {
       return 0;
     }
   }
-  int x = 0;
+  double x = 0;
   do {
     x = 10*x + (int)(c - '0');
   } while (isdigit(c = getc(stdin)));
@@ -111,7 +114,7 @@ Mat* alloc_mat(Cons* shape) {
   mat->refs = 0;
   mat->shape = shape;
   int size = cons_product(shape);
-  mat->data = malloc(sizeof(int) * size);
+  mat->data = malloc(sizeof(double) * size);
   return mat;
 }
 
@@ -170,7 +173,7 @@ Cons* _read_mat(int offset) {
   int row_size = 1;
   for (int len = 0; ; len++) {
     skip_whitespace();
-    if (!parse_int(&temp_mat[len*row_size + offset])) {
+    if (!parse_double(&temp_mat[len*row_size + offset])) {
       int c = getc(stdin);
       if (c == '[') {
         Cons* shape = _read_mat(len*row_size + offset);
@@ -199,31 +202,33 @@ void read_mat() {
     assert(getc(stdin) == ']');
     SKIP_NEWLINES = 0;
     Mat* mat = alloc_mat(shape);
-    memcpy(mat->data, &temp_mat, sizeof(int) * cons_product(shape));
+    memcpy(mat->data, &temp_mat, sizeof(double) * cons_product(shape));
     push(mat);
   } else {
     ungetc(c, stdin);
-    int x;
-    assert(parse_int(&x));
+    double x;
+    assert(parse_double(&x));
     Mat* mat = alloc_mat(NULL);
     mat->data[0] = x;
     push(mat);
   }
 }
 
-void _print_row(int* data, int len) {
+#define printdouble(x) (printf("%g", x))
+
+void _print_row(double* data, int len) {
   for (int i = 0; i < len; i++) {
     if (i != 0) {
       printf(" ");
     }
-    printf("%d", data[i]);
+    printdouble(data[i]);
   }
   printf("]");
 }
 
-void _print_mat(int* data, Cons* shape, int padding, int outer);
+void _print_mat(double* data, Cons* shape, int padding, int outer);
 
-void _print_mat_last(int* data, Cons* shape, int padding, int outer) {
+void _print_mat_last(double* data, Cons* shape, int padding, int outer) {
   printf("[");
   int rank = cons_len(shape);
   int stride;
@@ -254,7 +259,7 @@ void _print_mat_last(int* data, Cons* shape, int padding, int outer) {
   }
 }
 
-void _print_mat(int* data, Cons* shape, int padding, int outer) {
+void _print_mat(double* data, Cons* shape, int padding, int outer) {
   printf("[");
   int rank = cons_len(shape);
   int stride;
@@ -294,7 +299,7 @@ void print_mat() {
   Mat* mat = pop();
   int rank = cons_len(mat->shape);
   if (rank == 0) {
-    printf("%d", mat->data[0]);
+    printdouble(mat->data[0]);
   } else {
     _print_mat(mat->data, mat->shape, rank, 1);
   }
@@ -351,7 +356,7 @@ void reshape() {
   assert(cons_product(mat->shape) == cons_product(new_shape));
   Mat* new_mat = alloc_mat(new_shape);
   int size = cons_product(new_shape);
-  memcpy(new_mat->data, mat->data, sizeof(int) * size);
+  memcpy(new_mat->data, mat->data, sizeof(double) * size);
   push(new_mat);
   free_maybe(new_shape_mat);
   free_maybe(mat);
@@ -373,6 +378,96 @@ void make_range() {
   push(new);
   free_maybe(upper);
   free_maybe(lower);
+}
+
+void _rref(double* data, int rows, int cols) {
+  int first_row = 0;
+  while (first_row < rows - 1) {
+    int pivot_col = 0;
+    for (int col = 0; col < cols; col++) {
+      int is_zero = 1;
+      for (int row = first_row; row < rows; row++) {
+        if (data[row*cols + col] != 0) {
+          is_zero = 0;
+          break;
+        }
+      }
+      if (!is_zero) {
+        pivot_col = col;
+        break;
+      }
+    }
+    int pivot_row;
+    double max_pivot = 0;
+    for (int row = first_row; row < rows; row++) {
+      double abs_pivot = fabs(data[row*cols + pivot_col]);
+      if (abs_pivot > max_pivot) {
+        pivot_row = row;
+        max_pivot = abs_pivot;
+      }
+    }
+    if (pivot_row != first_row) {
+      for (int col = 0; col < cols; col++) {
+        double tmp = data[first_row*cols + col];
+        data[first_row*cols + col] = data[pivot_row*cols + col];
+        data[pivot_row*cols + col] = tmp;
+      }
+    }
+    double pivot = data[first_row*cols + pivot_col];
+    for (int row = first_row + 1; row < rows; row++) {
+      double x = data[row*cols + pivot_col];
+      if (x != 0) {
+        double factor = -x / pivot;
+        for (int col = pivot_col; col < cols; col++) {
+          data[row*cols + col] += factor * data[first_row*cols + col];
+        }
+      }
+    }
+    first_row++;
+  }
+  int bottom_row = rows - 1;
+  while (bottom_row >= 0) {
+    int leading_col = -1;
+    for (int col = 0; col < cols; col++) {
+      if (data[bottom_row*cols + col] != 0) {
+        leading_col = col;
+        break;
+      }
+    }
+    if (leading_col == -1) {
+      bottom_row--;
+      continue;
+    }
+    double lead = data[bottom_row*cols + leading_col];
+    for (int row = bottom_row - 1; row >= 0; row--) {
+      double x = data[row*cols + leading_col];
+      if (x != 0) {
+        double factor = -x / lead;
+        for (int col = leading_col; col < cols; col++) {
+          data[row*cols + col] += factor * data[bottom_row*cols + col];
+        }
+      }
+    }
+    double scale = 1 / lead;
+    for (int col = leading_col; col < cols; col++) {
+      data[bottom_row*cols + col] *= scale;
+    }
+    bottom_row--;
+  }
+}
+
+void rref() {
+  Mat* mat = pop();
+  int rank = cons_len(mat->shape);
+  assert(rank == 2);
+  int rows = first(mat->shape);
+  int cols = second(mat->shape);
+  Mat* new = alloc_mat(cons_copy(mat->shape));
+  int size = rows * cols;
+  memcpy(new->data, mat->data, sizeof(double) * size);
+  _rref(new->data, rows, cols);
+  push(new);
+  free_maybe(mat);
 }
 
 void read_expr();
@@ -423,6 +518,11 @@ void read_term() {
         read_term();
         get_rank();
       }
+    } else if (c == 'r') {
+      assert(getc(stdin) == 'e');
+      assert(getc(stdin) == 'f');
+      read_term();
+      rref();
     } else {
       assert(c == 'e');
       assert(getc(stdin) == 's');
